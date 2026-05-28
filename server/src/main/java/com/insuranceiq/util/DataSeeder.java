@@ -43,7 +43,7 @@ public class DataSeeder implements CommandLineRunner {
 
         // ===== Users (matching mockUsers) =====
         User admin = userRepository.save(User.builder()
-                .name("Rajesh Kumar").email("admin@insuranceiq.com")
+                .name("Harsha Kumar").email("admin@insuranceiq.com")
                 .passwordHash(hashedPassword).role(Role.ADMIN).status("active").build());
 
         User agentUser = userRepository.save(User.builder()

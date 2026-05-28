@@ -21,7 +21,7 @@ public class FraudController {
 
     @PostMapping("/fraud/{claimId}")
     @Operation(summary = "Run fraud prediction on a claim")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CLAIMS_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLAIMS_MANAGER', 'AGENT', 'CUSTOMER')")
     public ResponseEntity<FraudPredictionResponse> predictFraud(@PathVariable String claimId) {
         return ResponseEntity.ok(fraudService.predictFraud(claimId));
     }

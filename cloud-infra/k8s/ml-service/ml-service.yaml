@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-service
+  namespace: insuranceiq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-service
+  template:
+    metadata:
+      labels:
+        app: ml-service
+    spec:
+      containers:
+        - name: ml-service
+          image: ${ECR_REGISTRY}/insuranceiq-ml:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: insuranceiq-secrets
+                  key: db-password
+            - name: DATABASE_URL
+              value: "mysql+pymysql://root:$(DB_PASSWORD)@mysql:3306/insuranceiq_db"
+            - name: DB_ECHO
+              value: "False"
+            - name: FRAUD_DETECTION_MODE
+              value: "RULE_BASED"
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-svc:5001"
+            - name: SPRING_BOOT_URL
+              value: "http://server-svc:8080"
+            - name: SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: insuranceiq-secrets
+                  key: service-secret
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8000"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "150Mi"
+            limits:
+              cpu: "500m"
+              memory: "350Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-svc
+  namespace: insuranceiq
+spec:
+  type: ClusterIP
+  selector:
+    app: ml-service
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ml-hpa
+  namespace: insuranceiq
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ml-service
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80

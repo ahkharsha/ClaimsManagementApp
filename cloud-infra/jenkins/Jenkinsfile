@@ -1,0 +1,85 @@
+pipeline {
+    agent any
+    
+    environment {
+        AWS_ACCOUNT_ID = '054014031154'
+        AWS_REGION = 'ap-south-2'
+        ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        K3S_NODE_IP = '10.0.2.150' // Private IP of the k3s node
+    }
+    
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+        
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Build Docker Images') {
+            steps {
+                sh 'docker build -q -t insuranceiq-frontend:latest ./client'
+                sh 'docker build -q -t insuranceiq-server:latest ./server'
+                sh 'docker build -q -t insuranceiq-ml:latest ./ml-service'
+                sh 'docker build -q -t insuranceiq-notification:latest ./notification-service'
+            }
+        }
+        
+        stage('Push to AWS ECR') {
+            steps {
+                sh '''#!/bin/bash
+                echo "Logging into AWS ECR..."
+                aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY} > /dev/null 2>&1
+                
+                for service in frontend server ml notification; do
+                    echo "Pushing ${service}..."
+                    docker tag insuranceiq-${service}:latest ${ECR_REGISTRY}/insuranceiq-${service}:latest
+                    docker push ${ECR_REGISTRY}/insuranceiq-${service}:latest > /dev/null
+                done
+                '''
+            }
+        }
+        
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''#!/bin/bash
+                echo "Configuring kubectl for EKS..."
+                aws eks update-kubeconfig --name insuranceiq-eks --region ${AWS_REGION}
+                
+                echo "Applying manifests..."
+                # Replace variables in YAML files before applying
+                find ./cloud-infra/k8s -type f -name "*.yaml" -exec sed -i "s|\\${ECR_REGISTRY}|${ECR_REGISTRY}|g" {} \\;
+                
+                kubectl apply -f ./cloud-infra/k8s/namespace.yaml
+                
+                # Create ECR pull secret
+                ECR_PASSWORD=$(aws ecr get-login-password --region ${AWS_REGION})
+                kubectl create secret docker-registry ecr-secret --docker-server=${ECR_REGISTRY} --docker-username=AWS --docker-password=${ECR_PASSWORD} --namespace=insuranceiq --dry-run=client -o yaml | kubectl apply -f -
+                kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "ecr-secret"}]}' -n insuranceiq
+
+                kubectl apply -f ./cloud-infra/k8s/secrets.yaml
+                kubectl apply -f ./cloud-infra/k8s/mysql/
+                kubectl apply -f ./cloud-infra/k8s/frontend/
+                kubectl apply -f ./cloud-infra/k8s/server/
+                kubectl apply -f ./cloud-infra/k8s/ml-service/
+                kubectl apply -f ./cloud-infra/k8s/notification/
+                kubectl apply -f ./cloud-infra/k8s/ingress.yaml
+                
+                echo "Forcing pods to restart with new images..."
+                kubectl rollout restart deployment -n insuranceiq
+                '''
+            }
+        }
+        
+        stage('Cleanup Docker Space') {
+            steps {
+                sh 'docker system prune -af --volumes'
+            }
+        }
+    }
+}

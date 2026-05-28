@@ -1,0 +1,24 @@
+grafana:
+  adminPassword: prom-operator
+  service:
+    type: NodePort
+    nodePort: 30000
+
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    resources:
+      requests:
+        memory: 200Mi
+        cpu: 100m
+      limits:
+        memory: 400Mi
+        cpu: 300m
+
+alertmanager:
+  enabled: false
+
+kubeStateMetrics:
+  enabled: true
+nodeExporter:
+  enabled: true

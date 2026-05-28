@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  namespace: insuranceiq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      containers:
+        - name: server
+          image: ${ECR_REGISTRY}/insuranceiq-server:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/insuranceiq_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "root"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: insuranceiq-secrets
+                  key: db-password
+            - name: APP_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: insuranceiq-secrets
+                  key: jwt-secret
+            - name: APP_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: insuranceiq-secrets
+                  key: service-secret
+            - name: APP_FRAUD_SERVICE_URL
+              value: "http://ml-svc:8000"
+            - name: APP_NOTIFICATION_SERVICE_URL
+              value: "http://notification-svc:5001"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "384Mi"
+            limits:
+              cpu: "700m"
+              memory: "768Mi"
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server-svc
+  namespace: insuranceiq
+spec:
+  type: ClusterIP
+  selector:
+    app: server
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: server-hpa
+  namespace: insuranceiq
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: server
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

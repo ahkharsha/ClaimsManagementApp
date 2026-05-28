@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: insuranceiq-ingress
+  namespace: insuranceiq
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+    - http:
+        paths:
+          # Spring Boot API
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: server-svc
+                port:
+                  number: 8080
+          
+          # Socket.io
+          - path: /socket.io
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-svc
+                port:
+                  number: 5001
+          
+          # Notification REST API
+          - path: /notifications
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-svc
+                port:
+                  number: 5001
+          
+          # Python ML Service
+          - path: /ml
+            pathType: Prefix
+            backend:
+              service:
+                name: ml-svc
+                port:
+                  number: 8000
+          
+          # Frontend (Catch-all)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-svc
+                port:
+                  number: 80

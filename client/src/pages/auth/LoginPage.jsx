@@ -44,7 +44,7 @@ export default function LoginPage() {
 
   const fillDemo = () => {
     setEmail(demoCredentials[role]);
-    setPassword('demo123');
+    setPassword('password123');
   };
 
   return (
@@ -163,7 +163,7 @@ export default function LoginPage() {
             >
               Fill demo credentials for <span className="font-semibold text-blue-400">{roles.find(r => r.value === role)?.label}</span>
             </button>
-            <p className="text-[10px] text-slate-600 mt-2 text-center">Password: demo123 (any password works for mock)</p>
+            <p className="text-[10px] text-slate-600 mt-2 text-center">Password: password123</p>
           </div>
         </div>
 

@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  # ── MySQL Database ──
+  mysql:
+    image: mysql:8.0
+    container_name: insuranceiq-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: insuranceiq_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Spring Boot Backend ──
+  server:
+    build: ./server
+    container_name: insuranceiq-server
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/insuranceiq_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-root}
+      APP_JWT_SECRET: ${JWT_SECRET:-InsuranceIQSecretKey2024VeryLongSecretKeyForHS256AlgorithmMinimum256Bits}
+      APP_FRAUD_SERVICE_URL: http://ml-service:8000
+      APP_NOTIFICATION_SERVICE_URL: http://notification-service:5001
+      APP_SERVICE_SECRET: ${SERVICE_SECRET:-InsuranceIQInternalServiceSecret2024}
+    ports:
+      - "8080:8080"
+
+  # ── Python ML Service ──
+  ml-service:
+    build: ./ml-service
+    container_name: insuranceiq-ml
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql+pymysql://root:${DB_PASSWORD:-root}@mysql:3306/insuranceiq_db
+      DB_ECHO: "False"
+      FRAUD_DETECTION_MODE: RULE_BASED
+      NOTIFICATION_SERVICE_URL: http://notification-service:5001
+      SERVICE_SECRET: ${SERVICE_SECRET:-InsuranceIQInternalServiceSecret2024}
+      SPRING_BOOT_URL: http://server:8080
+      HOST: 0.0.0.0
+      PORT: 8000
+    ports:
+      - "8000:8000"
+
+  # ── Node.js Notification Service ──
+  notification-service:
+    build: ./notification-service
+    container_name: insuranceiq-notifications
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PORT: 5001
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: insuranceiq_notifications
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      JWT_SECRET: ${JWT_SECRET:-InsuranceIQSecretKey2024VeryLongSecretKeyForHS256AlgorithmMinimum256Bits}
+      SPRING_BOOT_URL: http://server:8080
+    ports:
+      - "5001:5001"
+
+  # ── Nginx Reverse Proxy ──
+  nginx:
+    image: nginx:alpine
+    container_name: insuranceiq-nginx
+    restart: always
+    depends_on:
+      - server
+      - ml-service
+      - notification-service
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./client/dist:/usr/share/nginx/html
+
+volumes:
+  mysql_data:

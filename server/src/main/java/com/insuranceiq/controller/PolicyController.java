@@ -27,7 +27,7 @@ public class PolicyController {
 
     @GetMapping
     @Operation(summary = "Get all policies")
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT', 'CUSTOMER')")
     public ResponseEntity<List<PolicyResponse>> getAll() {
         return ResponseEntity.ok(policyService.getAll());
     }

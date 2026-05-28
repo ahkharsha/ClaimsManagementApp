@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { LineChartCard, BarChartCard, PieChartCard, AreaChartCard } from '../../components/charts/Charts';
 import { analyticsService } from '../../services/dataService';
 
@@ -42,6 +42,38 @@ export default function AnalyticsDashboard() {
     fetchData();
   }, []);
 
+  const [simulating, setSimulating] = useState(false);
+  const [simCount, setSimCount] = useState(0);
+  const simRef = useRef(false);
+
+  const simulateLoad = async () => {
+    if (simRef.current) {
+      simRef.current = false;
+      setSimulating(false);
+      return;
+    }
+    simRef.current = true;
+    setSimulating(true);
+    setSimCount(0);
+    
+    while (simRef.current) {
+      const promises = [];
+      for (let i = 0; i < 20; i++) {
+        promises.push(
+          fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@insuranceiq.com', password: 'password123', role: 'admin' })
+          }).then(() => {
+            if (simRef.current) setSimCount(c => c + 1);
+          }).catch(() => {})
+        );
+      }
+      await Promise.all(promises);
+      await new Promise(r => setTimeout(r, 100));
+    }
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
@@ -50,9 +82,17 @@ export default function AnalyticsDashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Analytics Dashboard</h1>
-        <p className="text-sm text-slate-400 mt-1">Comprehensive insurance operations analytics</p>
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Analytics Dashboard</h1>
+          <p className="text-sm text-slate-400 mt-1">Comprehensive insurance operations analytics</p>
+        </div>
+        <button 
+          onClick={simulateLoad}
+          className={`px-4 py-2 text-white text-sm font-semibold rounded-xl transition-all ${simulating ? 'bg-red-500 hover:bg-red-600' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500'}`}
+        >
+          {simulating ? `Stop Simulation (${simCount} Req)` : 'Simulate Backend Load (Continuous)'}
+        </button>
       </div>
 
       {/* Claims trends */}

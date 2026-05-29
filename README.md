@@ -1,3 +1,7 @@
+# InsuranceIQ — Node.js Notification Service
+### Branch: `dev-node-notifications-backend`
+
+> **Insurance Intelligence Platform** — A real-time notification microservice built with Node.js, Express, and Socket.IO. It manages all push notifications for the platform, delivering claim updates, KYC approvals, and policy renewal alerts to users in real time via WebSockets. It also runs a scheduled cron job for policy renewal reminders.
 # InsuranceIQ — React Frontend
 ### Branch: `dev-react-frontend`
 
@@ -11,6 +15,16 @@
 2. [System Architecture](#system-architecture)
 3. [Tech Stack & Versions](#tech-stack--versions)
 4. [Folder Structure](#folder-structure)
+5. [API Endpoints](#api-endpoints)
+6. [WebSocket Events](#websocket-events)
+7. [Cron Jobs](#cron-jobs)
+8. [Database Schema](#database-schema)
+9. [Authentication](#authentication)
+10. [Environment Variables](#environment-variables)
+11. [Installation & Setup](#installation--setup)
+12. [Running the Service](#running-the-service)
+13. [React Client Integration](#react-client-integration)
+14. [Inter-Service Communication](#inter-service-communication)
 5. [Pages & Role Access](#pages--role-access)
 6. [Service Layer](#service-layer)
 7. [Authentication Flow](#authentication-flow)
